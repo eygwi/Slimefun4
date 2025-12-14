@@ -364,7 +364,7 @@ public class TalismanListener implements Listener {
                     // We do not want to dupe blocks
                     if (!droppedItem.getType().isBlock()) {
                         int amount = Math.max(1, (dropAmount * 2) - droppedItem.getAmount());
-                        e.getBlock().getWorld().dropItemNaturally(e.getBlock().getLocation(), CustomItemStack.create(droppedItem, amount));
+                        e.getBlock().getWorld().dropItemNaturally(e.getBlock().getLocation(), new CustomItemStack(droppedItem, amount));
                         doubledDrops = true;
                     }
                 }

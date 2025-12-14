@@ -145,7 +145,7 @@ public final class Script {
             lore.add("&eShift + Right Click &fto leave a negative Rating");
         }
 
-        return CustomItemStack.create(android.getItem(), "&b" + getName(), lore.toArray(new String[0]));
+        return new CustomItemStack(android.getItem(), "&b" + getName(), lore.toArray(new String[0]));
     }
 
     @Nonnull

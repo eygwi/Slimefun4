@@ -1,5 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.implementation.tasks;
 
+import java.lang.reflect.InvocationTargetException;
+
 import javax.annotation.Nonnull;
 
 import org.apache.commons.lang.Validate;
@@ -76,9 +78,13 @@ public class CapacitorTextureUpdateTask implements Runnable {
 
     private void setTexture(@Nonnull Block b, @Nonnull HeadTexture texture) {
         PlayerSkin skin = PlayerSkin.fromHashCode(texture.getUniqueId(), texture.getTexture());
-        PlayerHead.setSkin(b, skin, false);
+
+        try {
+            PlayerHead.setSkin(b, skin, false);
+        } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
 
         PaperLib.getBlockState(b, false).getState().update(true, false);
     }
-
 }

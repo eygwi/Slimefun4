@@ -33,18 +33,14 @@ public class MachineFuel implements Predicate<ItemStack> {
         this.output = output;
     }
 
-    public MachineFuel(int seconds, SlimefunItemStack fuel) {
-        this(seconds, fuel.item(), null);
-    }
-
-    public MachineFuel(int seconds, SlimefunItemStack fuel, SlimefunItemStack output) {
+    public MachineFuel(int seconds, ItemStack fuel, SlimefunItemStack output) {
         Validate.notNull(fuel, "Fuel must never be null!");
         Validate.isTrue(seconds > 0, "Fuel must last at least one second!");
 
         this.ticks = seconds * 2;
-        this.fuel = fuel.item();
-        this.wrapper = ItemStackWrapper.wrap(this.fuel);
-        this.output = output != null ? output.item() : null;
+        this.fuel = fuel;
+        this.wrapper = ItemStackWrapper.wrap(fuel);
+        this.output = output;
     }
 
     public ItemStack getInput() {

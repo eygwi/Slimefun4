@@ -107,7 +107,7 @@ public class ExpCollector extends SlimefunItem implements InventoryBlock, Energy
 
     protected void constructMenu(BlockMenuPreset preset) {
         for (int slot : border) {
-            preset.addItem(slot, CustomItemStack.create(Material.PURPLE_STAINED_GLASS_PANE, " "), (p, s, item, action) -> false);
+            preset.addItem(slot, new CustomItemStack(Material.PURPLE_STAINED_GLASS_PANE, " "), (p, s, item, action) -> false);
         }
     }
 
@@ -160,9 +160,9 @@ public class ExpCollector extends SlimefunItem implements InventoryBlock, Energy
         int withdrawn = 0;
         BlockMenu menu = BlockStorage.getInventory(location);
         for (int level = 0; level < getStoredExperience(location); level = level + 10) {
-            if (menu.fits(SlimefunItems.FILLED_FLASK_OF_KNOWLEDGE.item(), getOutputSlots())) {
+            if (menu.fits(SlimefunItems.FILLED_FLASK_OF_KNOWLEDGE, getOutputSlots())) {
                 withdrawn = withdrawn + 10;
-                menu.pushItem(SlimefunItems.FILLED_FLASK_OF_KNOWLEDGE.item(), getOutputSlots());
+                menu.pushItem(SlimefunItems.FILLED_FLASK_OF_KNOWLEDGE, getOutputSlots());
             } else {
                 // There is no room for more bottles, so lets stop checking if more will fit.
                 break;

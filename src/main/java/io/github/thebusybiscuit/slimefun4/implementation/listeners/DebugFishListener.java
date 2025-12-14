@@ -61,7 +61,7 @@ public class DebugFishListener implements Listener {
 
         Player p = e.getPlayer();
 
-        if (SlimefunUtils.isItemSimilar(e.getItem(), SlimefunItems.DEBUG_FISH.item(), true, false)) {
+        if (SlimefunUtils.isItemSimilar(e.getItem(), SlimefunItems.DEBUG_FISH, true, false)) {
             e.setCancelled(true);
 
             if (p.hasPermission("slimefun.debugging")) {
@@ -90,40 +90,29 @@ public class DebugFishListener implements Listener {
     @ParametersAreNonnullByDefault
     private void onRightClick(Player p, Block b, BlockFace face) {
         if (p.isSneaking()) {
-            // Fixes #2655 - Delaying the placement to prevent a new event from being fired
             Slimefun.runSync(() -> {
                 Block block = b.getRelative(face);
                 block.setType(Material.PLAYER_HEAD);
 
-                PlayerHead.setSkin(block, HeadTexture.MISSING_TEXTURE.getAsSkin(), true);
+                try {
+                    PlayerHead.setSkin(block, HeadTexture.MISSING_TEXTURE.getAsSkin(), true);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
                 SoundEffect.DEBUG_FISH_CLICK_SOUND.playFor(p);
             }, 2L);
-        } else if (BlockStorage.hasBlockInfo(b)) {
+            return;
+        }
+
+        if (BlockStorage.hasBlockInfo(b)) {
             try {
                 sendInfo(p, b);
             } catch (Exception x) {
                 Slimefun.logger().log(Level.SEVERE, "An Exception occurred while using a Debug-Fish", x);
             }
         } else {
-            // Read applicable Slimefun tags
-            Set<SlimefunTag> tags = EnumSet.noneOf(SlimefunTag.class);
-
-            for (SlimefunTag tag : SlimefunTag.values()) {
-                if (tag.isTagged(b.getType())) {
-                    tags.add(tag);
-                }
-            }
-
-            if (!tags.isEmpty()) {
-                p.sendMessage(" ");
-                p.sendMessage(ChatColors.color("&dSlimefun tags for: &e") + b.getType().name());
-
-                for (SlimefunTag tag : tags) {
-                    p.sendMessage(ChatColors.color("&d* &e") + tag.name());
-                }
-
-                p.sendMessage(" ");
-            }
+            sendInfo(p, b); 
         }
     }
 

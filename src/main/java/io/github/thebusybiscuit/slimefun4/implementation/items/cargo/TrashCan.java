@@ -30,7 +30,7 @@ import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 public class TrashCan extends SlimefunItem implements InventoryBlock {
 
     private final int[] border = { 0, 1, 2, 3, 5, 4, 6, 7, 8, 9, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26 };
-    private final ItemStack background = CustomItemStack.create(Material.RED_STAINED_GLASS_PANE, " ");
+    private final ItemStack background = new CustomItemStack(Material.RED_STAINED_GLASS_PANE, " ");
 
     @ParametersAreNonnullByDefault
     public TrashCan(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {

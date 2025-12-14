@@ -321,7 +321,7 @@ public abstract class SlimefunLocalization implements Keyed {
         Language language = getLanguage(p);
         NamespacedKey key = recipeType.getKey();
 
-        return CustomItemStack.create(item, meta -> {
+        return new CustomItemStack(item, meta -> {
             String displayName = getStringOrNull(language, LanguageFile.RECIPES, key.getNamespace() + "." + key.getKey() + ".name");
 
             // Set the display name if possible, else keep the default item name.

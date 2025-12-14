@@ -152,7 +152,7 @@ public class SlimefunItem implements Placeable {
         Validate.notNull(recipeType, "'recipeType' is not allowed to be null!");
 
         this.itemGroup = itemGroup;
-        this.itemStackTemplate = item.item();
+        this.itemStackTemplate = item;
         this.id = item.getItemId();
         this.recipeType = recipeType;
         this.recipe = recipe;
@@ -1152,19 +1152,6 @@ public class SlimefunItem implements Placeable {
         return Optional.ofNullable(getById(id));
     }
 
-    public static @Nullable SlimefunItem getByItem(@Nullable SlimefunItemStack slimefunItemStack) {
-        if (slimefunItemStack == null) {
-            return null;
-        }
-
-        var delegate = slimefunItemStack.item();
-        if (delegate.getType() == Material.AIR) {
-            return null;
-        }
-
-        return getById(slimefunItemStack.getItemId());
-    }
-
     /**
      * Retrieve a {@link SlimefunItem} from an {@link ItemStack}.
      *
@@ -1177,12 +1164,18 @@ public class SlimefunItem implements Placeable {
             return null;
         }
 
+        if (item instanceof SlimefunItemStack stack) {
+            return getById(stack.getItemId());
+        }
+
         Optional<String> itemID = Slimefun.getItemDataService().getItemData(item);
 
-        return itemID.map(SlimefunItem::getById).orElse(null);
+        if (itemID.isPresent()) {
+            return getById(itemID.get());
+        }
 
+        return null;
     }
-
     /**
      * Retrieve a {@link Optional} {@link SlimefunItem} from an {@link ItemStack}.
      *

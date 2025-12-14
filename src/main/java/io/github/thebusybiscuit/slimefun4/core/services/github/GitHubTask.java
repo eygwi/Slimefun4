@@ -1,5 +1,9 @@
 package io.github.thebusybiscuit.slimefun4.core.services.github;
 
+import io.github.bakedlibs.dough.skins.CustomGameProfile;
+import io.github.bakedlibs.dough.skins.PlayerSkin;
+import io.github.bakedlibs.dough.skins.UUIDLookup;
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
@@ -10,22 +14,16 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import org.bukkit.Bukkit;
-
-import io.github.bakedlibs.dough.skins.PlayerSkin;
-import io.github.bakedlibs.dough.skins.UUIDLookup;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 
 /**
  * This {@link GitHubTask} represents a {@link Runnable} that is run every X minutes.
  * It retrieves every {@link Contributor} of this project from GitHub.
- * 
+ *
  * @author TheBusyBiscuit
- * 
+ *
  * @see GitHubService
  * @see Contributor
  *
@@ -69,6 +67,7 @@ class GitHubTask implements Runnable {
 
         for (Contributor contributor : gitHubService.getContributors().values()) {
             int newRequests = requestTexture(contributor, skins);
+
             requests += newRequests;
 
             if (newRequests < 0 || requests >= MAX_REQUESTS_PER_MINUTE) {
@@ -76,13 +75,16 @@ class GitHubTask implements Runnable {
             }
         }
 
-        if (requests >= MAX_REQUESTS_PER_MINUTE && Slimefun.instance() != null && Slimefun.instance().isEnabled()) {
+        if (requests >= MAX_REQUESTS_PER_MINUTE
+                && Slimefun.instance() != null
+                && Slimefun.instance().isEnabled()) {
             // Slow down API requests and wait a minute after more than x requests were made
             Bukkit.getScheduler().runTaskLaterAsynchronously(Slimefun.instance(), this::grabTextures, 2 * 60 * 20L);
         }
 
         for (GitHubConnector connector : gitHubService.getConnectors()) {
-            if (connector instanceof ContributionsConnector contributionsConnector && !contributionsConnector.hasFinished()) {
+            if (connector instanceof ContributionsConnector contributionsConnector
+                    && !contributionsConnector.hasFinished()) {
                 return;
             }
         }
@@ -112,14 +114,23 @@ class GitHubTask implements Runnable {
                 Thread.currentThread().interrupt();
             } catch (Exception x) {
                 // Too many requests
-                Slimefun.logger().log(Level.WARNING, "Attempted to refresh skin cache, got this response: {0}: {1}", new Object[] { x.getClass().getSimpleName(), x.getMessage() });
-                Slimefun.logger().log(Level.WARNING, "This usually means mojang.com is temporarily down or started to rate-limit this connection, nothing to worry about!");
+                Slimefun.logger()
+                        .log(
+                                Level.WARNING,
+                                "Attempted to refresh skin cache, got this response: {0}: {1}",
+                                new Object[] {x.getClass().getSimpleName(), x.getMessage()});
+                Slimefun.logger()
+                        .log(
+                                Level.WARNING,
+                                "This usually means mojang.com is temporarily down or started to rate-limit this"
+                                        + " connection, nothing to worry about!");
 
                 String msg = x.getMessage();
 
                 // Retry after 5 minutes if it was just rate-limiting
                 if (msg != null && msg.contains("429")) {
-                    Bukkit.getScheduler().runTaskLaterAsynchronously(Slimefun.instance(), this::grabTextures, 5 * 60 * 20L);
+                    Bukkit.getScheduler()
+                            .runTaskLaterAsynchronously(Slimefun.instance(), this::grabTextures, 5 * 60 * 20L);
                 }
 
                 return -1;
@@ -129,11 +140,13 @@ class GitHubTask implements Runnable {
         return 0;
     }
 
-    private @Nullable String pullTexture(@Nonnull Contributor contributor, @Nonnull Map<String, String> skins) throws InterruptedException, ExecutionException, TimeoutException {
+    private @Nullable String pullTexture(@Nonnull Contributor contributor, @Nonnull Map<String, String> skins)
+            throws InterruptedException, ExecutionException, TimeoutException {
         Optional<UUID> uuid = contributor.getUniqueId();
 
         if (!uuid.isPresent()) {
-            CompletableFuture<UUID> future = UUIDLookup.getUuidFromUsername(Slimefun.instance(), contributor.getMinecraftName());
+            CompletableFuture<UUID> future =
+                    UUIDLookup.getUuidFromUsername(Slimefun.instance(), contributor.getMinecraftName());
 
             // Fixes #3241 - Do not wait for more than 30 seconds
             uuid = Optional.ofNullable(future.get(30, TimeUnit.SECONDS));
@@ -142,12 +155,13 @@ class GitHubTask implements Runnable {
 
         if (uuid.isPresent()) {
             CompletableFuture<PlayerSkin> future = PlayerSkin.fromPlayerUUID(Slimefun.instance(), uuid.get());
-            Optional<String> skin = Optional.of(future.get().getProfile().getBase64Texture());
+            // fix: # 1128 1.21.9 compatibility
+            Optional<String> skin =
+                    Optional.of(CustomGameProfile.getBase64Texture(future.get().getProfile()));
             skins.put(contributor.getMinecraftName(), skin.orElse(""));
             return skin.orElse(null);
         } else {
             return null;
         }
     }
-
 }

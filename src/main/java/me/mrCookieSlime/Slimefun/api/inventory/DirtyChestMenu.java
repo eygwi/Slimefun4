@@ -136,7 +136,7 @@ public class DirtyChestMenu extends ChestMenu {
         }
 
         if (amount > 0) {
-            return CustomItemStack.create(item, amount);
+            return new CustomItemStack(item, amount);
         } else {
             return null;
         }

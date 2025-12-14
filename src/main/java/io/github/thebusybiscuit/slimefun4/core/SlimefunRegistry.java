@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 import javax.annotation.Nonnull;
 
@@ -280,6 +281,13 @@ public final class SlimefunRegistry {
     @Nonnull
     public Set<ItemStack> getBarteringDrops() {
         return barterDrops;
+    }
+
+    @Nonnull
+    public List<ItemStack> getRandomizedBarteringDrops() {
+        List<ItemStack> list = new ArrayList<>(barterDrops);
+        Collections.shuffle(list, ThreadLocalRandom.current());
+        return list;
     }
 
     @Nonnull

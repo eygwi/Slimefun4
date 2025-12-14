@@ -1,26 +1,29 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.tools;
 
-import java.lang.reflect.Constructor;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.logging.Level;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 
-import dev.lone.itemsadder.api.CustomBlock;
 import org.bukkit.Bukkit;
 import org.bukkit.Effect;
 import org.bukkit.ExplosionResult;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.inventory.ItemStack;
 
-import io.github.bakedlibs.dough.protection.Interaction;
-import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
+// Imports untuk ItemsAdder (Hapus jika tidak pakai ItemsAdder)
+import dev.lone.itemsadder.api.CustomBlock;
+
 import io.github.thebusybiscuit.slimefun4.api.events.ExplosiveToolBreakBlocksEvent;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemSetting;
@@ -35,39 +38,25 @@ import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
-
 import me.mrCookieSlime.Slimefun.api.BlockStorage;
 
 /**
  * This {@link SlimefunItem} is a super class for items like the {@link ExplosivePickaxe} or {@link ExplosiveShovel}.
- *
- * @author TheBusyBiscuit
- *
- * @see ExplosivePickaxe
- * @see ExplosiveShovel
- *
+ * * Combined Official Logic + Chinese Fork Fixes (ExoticGarden & ItemsAdder support).
  */
 public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements NotPlaceable, DamageableItem {
 
     private final ItemSetting<Boolean> damageOnUse = new ItemSetting<>(this, "damage-on-use", true);
     private final ItemSetting<Boolean> callExplosionEvent = new ItemSetting<>(this, "call-explosion-event", false);
-
-    private static Constructor<?> pre21ExplodeEventConstructor;
-    static {
-        if (Slimefun.getMinecraftVersion().isBefore(MinecraftVersion.MINECRAFT_1_21)) {
-            try {
-                pre21ExplodeEventConstructor = BlockExplodeEvent.class.getConstructor(Block.class, List.class, float.class);
-            } catch (Exception e) {
-                Slimefun.logger().log(Level.SEVERE, "Could not find constructor for BlockExplodeEvent", e);
-            }
-        }
-    }
+    
+    // Cek apakah ItemsAdder terinstall agar tidak error saat runtime
+    private final boolean isItemsAdderLoaded;
 
     @ParametersAreNonnullByDefault
     public ExplosiveTool(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(itemGroup, item, recipeType, recipe);
-
         addItemSetting(damageOnUse, callExplosionEvent);
+        this.isItemsAdderLoaded = Bukkit.getPluginManager().isPluginEnabled("ItemsAdder");
     }
 
     @Nonnull
@@ -79,6 +68,7 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
             if (!p.isSneaking()) {
                 Block b = e.getBlock();
 
+                // Visual explosion only
                 b.getWorld().createExplosion(b.getLocation(), 0);
                 SoundEffect.EXPLOSIVE_TOOL_EXPLODE_SOUND.playAt(b);
 
@@ -93,34 +83,29 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
         List<Block> blocksToDestroy = new ArrayList<>();
 
         if (callExplosionEvent.getValue()) {
-            BlockExplodeEvent blockExplodeEvent = createNewBlockExplodeEvent(b, blocks, 0);
+            BlockExplodeEvent blockExplodeEvent = new BlockExplodeEvent(b, b.getState(), blocks, 0.0F, ExplosionResult.DESTROY);
             Bukkit.getServer().getPluginManager().callEvent(blockExplodeEvent);
 
             if (!blockExplodeEvent.isCancelled()) {
                 for (Block block : blockExplodeEvent.blockList()) {
-                    if (canBreak(p, block)) {
-                        if (Slimefun.getIntegrations().isCustomBlock(block)) {
-                            drops.addAll(CustomBlock.byAlreadyPlaced(block).getLoot());
-                            CustomBlock.remove(block.getLocation());
-                        }
-                        blocksToDestroy.add(block);
-                    }
+                    processBlockForDestruction(p, block, blocksToDestroy, drops);
                 }
             }
         } else {
             for (Block block : blocks) {
-                if (canBreak(p, block)) {
-                    if (Slimefun.getIntegrations().isCustomBlock(block)) {
-                        drops.addAll(CustomBlock.byAlreadyPlaced(block).getLoot());
-                        CustomBlock.remove(block.getLocation());
-                    }
-                    blocksToDestroy.add(block);
-                }
+                processBlockForDestruction(p, block, blocksToDestroy, drops);
             }
         }
 
         ExplosiveToolBreakBlocksEvent event = new ExplosiveToolBreakBlocksEvent(p, b, blocksToDestroy, item, this);
         Bukkit.getServer().getPluginManager().callEvent(event);
+
+        if (Bukkit.getPluginManager().isPluginEnabled("ExoticGarden")) {
+            blocksToDestroy.sort((block1, block2) -> Boolean.compare(
+                    block2.getType() == Material.PLAYER_HEAD || block2.getType() == Material.PLAYER_WALL_HEAD,
+                    block1.getType() == Material.PLAYER_HEAD || block1.getType() == Material.PLAYER_WALL_HEAD
+            ));
+        }
 
         if (!event.isCancelled()) {
             for (Block block : blocksToDestroy) {
@@ -129,23 +114,29 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
         }
     }
 
+    private void processBlockForDestruction(Player p, Block block, List<Block> blocksToDestroy, List<ItemStack> drops) {
+        if (canBreak(p, block)) {
+            if (isItemsAdderLoaded && CustomBlock.byAlreadyPlaced(block) != null) {
+                CustomBlock cb = CustomBlock.byAlreadyPlaced(block);
+                drops.addAll(cb.getLoot());
+                cb.remove();
+                return; 
+            }
+            blocksToDestroy.add(block);
+        }
+    }
+
     @Nonnull
     private List<Block> findBlocks(@Nonnull Block b) {
         List<Block> blocks = new ArrayList<>(26);
-
         for (int x = -1; x <= 1; x++) {
             for (int y = -1; y <= 1; y++) {
                 for (int z = -1; z <= 1; z++) {
-                    // We can skip the center block since that will break as usual
-                    if (x == 0 && y == 0 && z == 0) {
-                        continue;
-                    }
-
+                    if (x == 0 && y == 0 && z == 0) continue;
                     blocks.add(b.getRelative(x, y, z));
                 }
             }
         }
-
         return blocks;
     }
 
@@ -162,63 +153,64 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
         } else if (!b.getWorld().getWorldBorder().isInside(b.getLocation())) {
             return false;
         } else {
-            return Slimefun.getProtectionManager().hasPermission(p, b.getLocation(), Interaction.BREAK_BLOCK);
+            return Slimefun.getProtectionManager().hasPermission(p, b.getLocation(), io.github.bakedlibs.dough.protection.Interaction.BREAK_BLOCK);
         }
     }
 
     @ParametersAreNonnullByDefault
-    private void breakBlock(BlockBreakEvent e, Player p, ItemStack item, Block b, List<ItemStack> drops) {
-        Slimefun.getProtectionManager().logAction(p, b, Interaction.BREAK_BLOCK);
-        Material material = b.getType();
+    private void breakBlock(BlockBreakEvent event, Player player, ItemStack item, Block block, List<ItemStack> drops) {
+        Slimefun.getProtectionManager().logAction(player, block, io.github.bakedlibs.dough.protection.Interaction.BREAK_BLOCK);
+        
+        Material material = block.getType();
+        block.getWorld().playEffect(block.getLocation(), Effect.STEP_SOUND, material);
+        Location blockLocation = block.getLocation();
 
-        b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, material);
-        SlimefunItem sfItem = BlockStorage.check(b);
+        SlimefunItem sfItem = BlockStorage.check(blockLocation);
+        AtomicBoolean isUseVanillaBlockBreaking = new AtomicBoolean(true);
 
-        if (sfItem != null && !sfItem.useVanillaBlockBreaking()) {
-            /*
-             * Fixes #2989
-             * We create a dummy here to pass onto the BlockBreakHandler.
-             * This will set the correct block context.
-             */
-            BlockBreakEvent dummyEvent = new BlockBreakEvent(b, e.getPlayer());
+        if (sfItem != null) {
 
-            /*
-             * Fixes #3036 and handling in general.
-             * Call the BlockBreakHandler if the block has one to allow for proper handling.
-             */
-            sfItem.callItemHandler(BlockBreakHandler.class, handler -> handler.onPlayerBreak(dummyEvent, item, drops));
+            if (Bukkit.getPluginManager().isPluginEnabled("ExoticGarden") 
+                    && (block.getType() == Material.PLAYER_HEAD || block.getType() == Material.PLAYER_WALL_HEAD)) {
+                
+                Location leavesLocation = blockLocation.clone().add(0, -1, 0);
+                Block leaveBlock = leavesLocation.getBlock();
 
-            // Make sure the event wasn't cancelled by the BlockBreakHandler.
-            if (!dummyEvent.isCancelled()) {
-                drops.addAll(sfItem.getDrops(p));
-                b.setType(Material.AIR);
-                BlockStorage.clearBlockInfo(b);
-            }
-        } else {
-            b.breakNaturally(item);
-        }
-
-        damageItem(p, item);
-    }
-
-    private BlockExplodeEvent createNewBlockExplodeEvent(
-        Block block,
-        List<Block> blocks,
-        float yield
-    ) {
-        var version = Slimefun.getMinecraftVersion();
-        if (version.isAtLeast(MinecraftVersion.MINECRAFT_1_21)) {
-            return new BlockExplodeEvent(block, block.getState(), blocks, yield, ExplosionResult.DESTROY);
-        } else if (pre21ExplodeEventConstructor != null) {
-            try {
-                return (BlockExplodeEvent) pre21ExplodeEventConstructor.newInstance(block, blocks, yield);
-            } catch (Exception e) {
-                Slimefun.logger().log(Level.SEVERE, "Could not find constructor for BlockExplodeEvent", e);
+                if (Tag.LEAVES.isTagged(leaveBlock.getType())) {
+                    SlimefunItem leavesSfItem = BlockStorage.check(leavesLocation);
+                    
+                    if (leavesSfItem != null) {
+                        Collection<ItemStack> sfItemDrops = sfItem.getDrops();
+                        Collection<ItemStack> leavesSfItemDrops = leavesSfItem.getDrops();
+                        
+                        if (!sfItemDrops.isEmpty() && !leavesSfItemDrops.isEmpty()) {
+                             leaveBlock.setType(Material.AIR);
+                             BlockStorage.clearBlockInfo(leavesLocation);
+                             isUseVanillaBlockBreaking.set(false);
+                        }
+                    }
+                }
             }
 
-            return null;
-        } else {
-            throw new IllegalStateException("BlockExplodeEvent constructor not found");
+            if (isUseVanillaBlockBreaking.get()) {
+                isUseVanillaBlockBreaking.set(sfItem.useVanillaBlockBreaking());
+            }
+
+            if (!isUseVanillaBlockBreaking.get()) {
+                BlockBreakEvent dummyEvent = new BlockBreakEvent(block, event.getPlayer());
+                
+                sfItem.callItemHandler(BlockBreakHandler.class, handler -> handler.onPlayerBreak(dummyEvent, item, drops));
+
+                if (!dummyEvent.isCancelled()) {
+                    drops.addAll(sfItem.getDrops(player));
+                    block.setType(Material.AIR);
+                    BlockStorage.clearBlockInfo(blockLocation);
+                }
+                
+                return; 
+            }
         }
+        block.breakNaturally(item);
+        damageItem(player, item);
     }
 }

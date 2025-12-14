@@ -157,7 +157,7 @@ public class AncientPedestal extends SimpleSlimefunItem<BlockDispenseHandler> im
     public void placeItem(@Nonnull Player p, @Nonnull Block b) {
         ItemStack hand = p.getInventory().getItemInMainHand();
         String displayName = ITEM_PREFIX + System.nanoTime();
-        ItemStack displayItem = CustomItemStack.create(hand, displayName);
+        ItemStack displayItem = new CustomItemStack(hand, displayName);
         displayItem.setAmount(1);
 
         // Get the display name of the original Item in the Player's hand
