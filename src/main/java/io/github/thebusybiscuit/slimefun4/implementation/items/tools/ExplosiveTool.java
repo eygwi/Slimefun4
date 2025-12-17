@@ -3,7 +3,6 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.tools;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.annotation.Nonnull;
@@ -21,7 +20,6 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.inventory.ItemStack;
 
-// Imports untuk ItemsAdder (Hapus jika tidak pakai ItemsAdder)
 import dev.lone.itemsadder.api.CustomBlock;
 
 import io.github.thebusybiscuit.slimefun4.api.events.ExplosiveToolBreakBlocksEvent;
@@ -42,14 +40,13 @@ import me.mrCookieSlime.Slimefun.api.BlockStorage;
 
 /**
  * This {@link SlimefunItem} is a super class for items like the {@link ExplosivePickaxe} or {@link ExplosiveShovel}.
- * * Combined Official Logic + Chinese Fork Fixes (ExoticGarden & ItemsAdder support).
+ * Combined Official Logic + Chinese Fork Fixes + Sorting Fix (Anti-Dupe).
  */
 public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements NotPlaceable, DamageableItem {
 
     private final ItemSetting<Boolean> damageOnUse = new ItemSetting<>(this, "damage-on-use", true);
     private final ItemSetting<Boolean> callExplosionEvent = new ItemSetting<>(this, "call-explosion-event", false);
     
-    // Cek apakah ItemsAdder terinstall agar tidak error saat runtime
     private final boolean isItemsAdderLoaded;
 
     @ParametersAreNonnullByDefault
@@ -100,6 +97,8 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
         ExplosiveToolBreakBlocksEvent event = new ExplosiveToolBreakBlocksEvent(p, b, blocksToDestroy, item, this);
         Bukkit.getServer().getPluginManager().callEvent(event);
 
+        blocksToDestroy.sort((b1, b2) -> Integer.compare(b2.getY(), b1.getY()));
+
         if (Bukkit.getPluginManager().isPluginEnabled("ExoticGarden")) {
             blocksToDestroy.sort((block1, block2) -> Boolean.compare(
                     block2.getType() == Material.PLAYER_HEAD || block2.getType() == Material.PLAYER_WALL_HEAD,
@@ -109,7 +108,9 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
 
         if (!event.isCancelled()) {
             for (Block block : blocksToDestroy) {
-                breakBlock(e, p, item, block, drops);
+                if (block.getType() != Material.AIR) {
+                    breakBlock(e, p, item, block, drops);
+                }
             }
         }
     }
@@ -210,7 +211,10 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
                 return; 
             }
         }
-        block.breakNaturally(item);
+        
+        if (block.getType() != Material.AIR) {
+            block.breakNaturally(item);
+        }
         damageItem(player, item);
     }
 }
